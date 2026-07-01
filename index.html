@@ -7,13 +7,12 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body class="bg-gray-100 min-h-screen p-6 font-sans">
+<body class="bg-gray-100 min-h-screen p-6 font-sans relative">
 
-    <div class="max-w-6xl mx-auto bg-white rounded-xl shadow-lg p-8">
+    <div class="max-w-6xl mx-auto bg-white rounded-xl shadow-lg p-8 relative z-10">
         <h1 class="text-3xl font-bold text-blue-800 mb-6 border-b pb-4">Calculadora de Bombeo Solar</h1>
 
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 bg-blue-50 p-6 rounded-lg">
-            
             <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-1">Caudal (m³/h)</label>
                 <input type="number" id="inputCaudal" step="0.1" class="w-full p-2 border rounded focus:ring focus:ring-blue-200" placeholder="Ej: 5.5">
@@ -22,7 +21,6 @@
                 <label class="block text-sm font-semibold text-gray-700 mb-1">Altura (mts)</label>
                 <input type="number" id="inputAltura" step="0.1" class="w-full p-2 border rounded focus:ring focus:ring-blue-200" placeholder="Ej: 40">
             </div>
-
             <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-1">Tipo</label>
                 <select id="selectTipo" class="w-full p-2 border rounded focus:ring focus:ring-blue-200"><option value="">Todos</option></select>
@@ -56,42 +54,44 @@
             <p>Cargando base de datos...</p>
         </div>
 
-        <div id="resultados" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div id="resultados" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+    </div>
+
+    <div id="modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div class="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-lg">
+                <h3 id="modal-title" class="text-xl font-bold text-blue-800">Cargando detalles...</h3>
+                <button onclick="cerrarModal()" class="text-gray-500 hover:text-red-500 text-2xl font-bold">&times;</button>
             </div>
+            <div id="modal-content" class="p-6 overflow-y-auto flex-grow">
+                </div>
+        </div>
     </div>
 
 <script>
-    // ==========================================
-    // 1. PEGA TU URL DE APPS SCRIPT AQUÍ ABAJO
-    // ==========================================
-    const API_URL = 'https://script.google.com/macros/s/AKfycbwrclJ08pMWJu6WIgRiquGasNJewsQgNvmBCXNJigdTpwnCHJdx9l5IKzu94Xd1iP8R/exec';
-    
+    // Tu URL oficial
+    const API_URL = 'https://script.google.com/macros/s/AKfycbw5r6baG-5KrmPtim2FMLaKySS6gMgQWsagGJspacUQjPpfSqz2JG0p6mbvf6XBDaVC/exec';
     let allPumps = [];
 
-    // Al cargar la página, buscamos los datos
     window.onload = async function() {
-        if(API_URL === 'AQUI_PEGARAS_TU_URL_DE_APPS_SCRIPT') {
-            document.getElementById('resultados').innerHTML = '<p class="text-red-500 col-span-2">⚠️ Debes pegar la URL de tu Google Apps Script en el código HTML.</p>';
-            return;
-        }
-
         document.getElementById('loading').classList.remove('hidden');
-        
         try {
             const response = await fetch(API_URL);
-            allPumps = await response.json();
+            const json = await response.json();
             
-            if(allPumps.error) {
-                alert("Error de la API: " + allPumps.error);
+            if(json.error) {
+                alert("Error de la API: " + json.error);
                 return;
             }
-
+            
+            // Ahora la API devuelve el catálogo dentro de json.datos
+            allPumps = json.datos; 
             popularDesplegables();
             document.getElementById('loading').classList.add('hidden');
-            mostrarBombas(allPumps); // Muestra todas por defecto
+            mostrarBombas(allPumps); 
         } catch (error) {
             console.error("Error al cargar datos:", error);
-            document.getElementById('resultados').innerHTML = '<p class="text-red-500 col-span-2">Error al conectar con la base de datos. Verifica la URL de Apps Script y los permisos (CORS).</p>';
+            document.getElementById('resultados').innerHTML = '<p class="text-red-500 col-span-2">Error al conectar con la base de datos.</p>';
             document.getElementById('loading').classList.add('hidden');
         }
     };
@@ -131,7 +131,6 @@
     function filtrarBombas() {
         const qCaudal = parseNum(document.getElementById('inputCaudal').value);
         const qAltura = parseNum(document.getElementById('inputAltura').value);
-        
         const fTipo = document.getElementById('selectTipo').value;
         const fDiametro = document.getElementById('selectDiametro').value;
         const fMaterial = document.getElementById('selectMaterial').value;
@@ -139,14 +138,12 @@
         const fPotencia = document.getElementById('selectPotencia').value;
 
         const filtradas = allPumps.filter(bomba => {
-            // Filtros de Desplegables
             if (fTipo && bomba['Tipo'] != fTipo) return false;
-            if (fDiametro && bomba['Diámetro'] != fDiametro) return false;
+            if (fDiametro && String(bomba['Diámetro']) != String(fDiametro)) return false;
             if (fMaterial && bomba['Material turbina'] != fMaterial) return false;
             if (fVoltaje && String(bomba['Voltaje DC']) !== String(fVoltaje)) return false;
             if (fPotencia && String(bomba['Potencia motor']) !== String(fPotencia)) return false;
 
-            // Filtros Matemáticos (Caudal y Altura Ideal)
             if (qCaudal > 0) {
                 const minC = parseNum(bomba['Caudal Min. Ideal']);
                 const maxC = parseNum(bomba['Caudal Max. Ideal']);
@@ -161,13 +158,11 @@
 
             return true;
         });
-
         mostrarBombas(filtradas);
     }
 
     function toggleElement(id) {
-        const el = document.getElementById(id);
-        el.classList.toggle('hidden');
+        document.getElementById(id).classList.toggle('hidden');
     }
 
     function mostrarBombas(bombas) {
@@ -175,18 +170,17 @@
         container.innerHTML = '';
 
         if(bombas.length === 0) {
-            container.innerHTML = '<p class="text-gray-500 col-span-2 text-center py-4">No se encontraron bombas con esas especificaciones.</p>';
+            container.innerHTML = '<p class="text-gray-500 col-span-2 text-center py-4">No se encontraron bombas.</p>';
             return;
         }
 
         bombas.forEach((bomba, index) => {
+            // El enlace ahora ejecuta abrirDetalleModelo en lugar de ir a un .html
             const html = `
             <div class="bg-white border rounded-lg shadow-sm p-5 hover:shadow-md transition">
                 <div class="border-b pb-3 mb-3">
-                    <h2 class="text-xl font-bold text-blue-700">
-                        <a href="${bomba['Modelo']}.html" target="_blank" class="hover:underline" title="Ver ficha técnica">
-                            ${bomba['Modelo']} <i class="fas fa-external-link-alt text-sm text-gray-400"></i>
-                        </a>
+                    <h2 class="text-xl font-bold text-blue-700 cursor-pointer hover:underline" onclick="abrirDetalleModelo('${bomba['Modelo']}')" title="Ver ficha técnica">
+                        ${bomba['Modelo']} <i class="fas fa-search-plus text-sm text-gray-400"></i>
                     </h2>
                     <p class="text-sm text-gray-600 mt-1">${bomba['Descripción']}</p>
                 </div>
@@ -201,21 +195,11 @@
                 </div>
 
                 <button onclick="toggleElement('tech-${index}')" class="w-full text-left bg-gray-50 hover:bg-gray-100 p-2 rounded border text-sm font-semibold text-gray-700 flex justify-between items-center mb-3">
-                    Rangos Ideales de Trabajo <i class="fas fa-chevron-down"></i>
+                    Rangos Ideales <i class="fas fa-chevron-down"></i>
                 </button>
                 <div id="tech-${index}" class="hidden bg-gray-50 p-3 rounded border text-sm grid grid-cols-2 gap-4 mb-3">
-                    <div>
-                        <span class="block font-bold text-blue-600 border-b mb-1">Caudal Ideal (m³/h)</span>
-                        Mín: ${bomba['Caudal Min. Ideal']} <br>
-                        Med: ${bomba['Caudal Med. Ideal']} <br>
-                        Máx: ${bomba['Caudal Max. Ideal']}
-                    </div>
-                    <div>
-                        <span class="block font-bold text-blue-600 border-b mb-1">Altura Ideal (mts)</span>
-                        Mín: ${bomba['Altura Min. Ideal']} <br>
-                        Med: ${bomba['Altura Med. Ideal']} <br>
-                        Máx: ${bomba['Altura Max. Ideal']}
-                    </div>
+                    <div><span class="block font-bold text-blue-600 border-b mb-1">Caudal (m³/h)</span>Mín: ${bomba['Caudal Min. Ideal']} <br>Med: ${bomba['Caudal Med. Ideal']} <br>Máx: ${bomba['Caudal Max. Ideal']}</div>
+                    <div><span class="block font-bold text-blue-600 border-b mb-1">Altura (mts)</span>Mín: ${bomba['Altura Min. Ideal']} <br>Med: ${bomba['Altura Med. Ideal']} <br>Máx: ${bomba['Altura Max. Ideal']}</div>
                 </div>
 
                 <div class="space-y-2 pt-2 border-t">
@@ -245,6 +229,62 @@
             `;
             container.innerHTML += html;
         });
+    }
+
+    // --- LÓGICA DE LA VENTANA EMERGENTE (MODAL) --- //
+    async function abrirDetalleModelo(modelo) {
+        const modal = document.getElementById('modal');
+        const content = document.getElementById('modal-content');
+        const title = document.getElementById('modal-title');
+        
+        // Formateamos el título por si trae caracteres especiales
+        const modeloLimpio = modelo.trim();
+        
+        modal.classList.remove('hidden');
+        title.innerText = `Detalles técnicos: ${modeloLimpio}`;
+        content.innerHTML = `<div class="text-center py-10"><i class="fas fa-spinner fa-spin fa-2x mb-2 text-blue-500"></i><p class="text-gray-600">Obteniendo datos de Google Sheets...</p></div>`;
+
+        try {
+            // Hacemos el pedido específico a tu API usando el nombre del modelo
+            const res = await fetch(`${API_URL}?modelo=${encodeURIComponent(modeloLimpio)}`);
+            const json = await res.json();
+
+            if (json.error) {
+                content.innerHTML = `<p class="text-red-500 font-bold bg-red-50 p-4 rounded text-center">⚠️ ${json.error}</p>`;
+                return;
+            }
+
+            // Datos puros (matriz de filas y columnas de esa pestaña específica)
+            const datosHoja = json.datos;
+
+            // Construimos una tabla HTML básica para mostrar toda la información de la pestaña
+            let tableHtml = '<div class="overflow-x-auto"><table class="w-full text-sm text-left border-collapse">';
+            datosHoja.forEach((fila, index) => {
+                // Evitamos pintar filas completamente vacías
+                if (fila.some(celda => celda !== "")) {
+                    tableHtml += '<tr class="border-b hover:bg-gray-50">';
+                    fila.forEach(celda => {
+                        let valorCelda = (celda !== undefined && celda !== null) ? celda : '';
+                        if(index === 0) { // Tratamos la primera fila como encabezado
+                             tableHtml += `<th class="p-2 bg-gray-100 font-bold border-r">${valorCelda}</th>`;
+                        } else {
+                             tableHtml += `<td class="p-2 border-r whitespace-nowrap">${valorCelda}</td>`;
+                        }
+                    });
+                    tableHtml += '</tr>';
+                }
+            });
+            tableHtml += '</table></div>';
+
+            content.innerHTML = tableHtml;
+
+        } catch (e) {
+            content.innerHTML = `<p class="text-red-500 text-center py-6">Error de conexión al cargar la pestaña del modelo.</p>`;
+        }
+    }
+
+    function cerrarModal() {
+        document.getElementById('modal').classList.add('hidden');
     }
 </script>
 </body>
