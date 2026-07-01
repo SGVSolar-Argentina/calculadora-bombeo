@@ -57,20 +57,23 @@
         <div id="resultados" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
     </div>
 
-    <div id="modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-            <div class="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-lg">
-                <h3 id="modal-title" class="text-xl font-bold text-blue-800">Cargando detalles...</h3>
-                <button onclick="cerrarModal()" class="text-gray-500 hover:text-red-500 text-2xl font-bold">&times;</button>
+    <div id="modal" class="hidden fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-3xl flex flex-col overflow-hidden">
+            <div class="p-4 border-b flex justify-between items-center bg-gray-50">
+                <h3 id="modal-title" class="text-xl font-bold text-blue-800">Curva de Rendimiento</h3>
+                <button onclick="cerrarModal()" class="text-gray-500 hover:text-red-500 text-2xl font-bold leading-none">&times;</button>
             </div>
-            <div id="modal-content" class="p-6 overflow-y-auto flex-grow">
+            <div id="modal-content" class="p-6 flex justify-center items-center bg-gray-100 min-h-[300px]">
                 </div>
         </div>
     </div>
 
 <script>
-    // Tu URL oficial
-    const API_URL = 'https://script.google.com/macros/s/AKfycbw5r6baG-5KrmPtim2FMLaKySS6gMgQWsagGJspacUQjPpfSqz2JG0p6mbvf6XBDaVC/exec';
+    // ==========================================
+    // ¡PEGA AQUÍ TU NUEVA URL DE APPS SCRIPT!
+    // ==========================================
+    const API_URL = 'https://script.google.com/macros/s/AKfycbwQ-YnEQm2laOeknzDjy71VCHiUcyT4m_r0wVyVJRA-Vy22jXVfZamBfOiutVJjeYeM/exec';
+    
     let allPumps = [];
 
     window.onload = async function() {
@@ -78,27 +81,22 @@
         try {
             const response = await fetch(API_URL);
             const json = await response.json();
-            
             if(json.error) {
-                alert("Error de la API: " + json.error);
+                alert("Error: " + json.error);
                 return;
             }
-            
-            // Ahora la API devuelve el catálogo dentro de json.datos
             allPumps = json.datos; 
             popularDesplegables();
             document.getElementById('loading').classList.add('hidden');
             mostrarBombas(allPumps); 
         } catch (error) {
-            console.error("Error al cargar datos:", error);
-            document.getElementById('resultados').innerHTML = '<p class="text-red-500 col-span-2">Error al conectar con la base de datos.</p>';
+            document.getElementById('resultados').innerHTML = '<p class="text-red-500 col-span-2 text-center font-bold">Error al conectar con la base de datos.</p>';
             document.getElementById('loading').classList.add('hidden');
         }
     };
 
     function obtenerUnicos(columna) {
-        const valores = allPumps.map(bomba => bomba[columna]).filter(val => val !== "" && val !== undefined);
-        return [...new Set(valores)].sort();
+        return [...new Set(allPumps.map(b => b[columna]).filter(v => v !== "" && v !== undefined))].sort();
     }
 
     function popularDesplegables() {
@@ -112,8 +110,7 @@
 
         selectores.forEach(sel => {
             const selectElement = document.getElementById(sel.id);
-            const valoresUnicos = obtenerUnicos(sel.col);
-            valoresUnicos.forEach(val => {
+            obtenerUnicos(sel.col).forEach(val => {
                 let option = document.createElement('option');
                 option.value = val;
                 option.text = val;
@@ -144,17 +141,8 @@
             if (fVoltaje && String(bomba['Voltaje DC']) !== String(fVoltaje)) return false;
             if (fPotencia && String(bomba['Potencia motor']) !== String(fPotencia)) return false;
 
-            if (qCaudal > 0) {
-                const minC = parseNum(bomba['Caudal Min. Ideal']);
-                const maxC = parseNum(bomba['Caudal Max. Ideal']);
-                if (qCaudal < minC || qCaudal > maxC) return false;
-            }
-
-            if (qAltura > 0) {
-                const minA = parseNum(bomba['Altura Min. Ideal']);
-                const maxA = parseNum(bomba['Altura Max. Ideal']);
-                if (qAltura < minA || qAltura > maxA) return false;
-            }
+            if (qCaudal > 0 && (qCaudal < parseNum(bomba['Caudal Min. Ideal']) || qCaudal > parseNum(bomba['Caudal Max. Ideal']))) return false;
+            if (qAltura > 0 && (qAltura < parseNum(bomba['Altura Min. Ideal']) || qAltura > parseNum(bomba['Altura Max. Ideal']))) return false;
 
             return true;
         });
@@ -170,39 +158,38 @@
         container.innerHTML = '';
 
         if(bombas.length === 0) {
-            container.innerHTML = '<p class="text-gray-500 col-span-2 text-center py-4">No se encontraron bombas.</p>';
+            container.innerHTML = '<p class="text-gray-500 col-span-2 text-center py-4">No se encontraron bombas con estas características.</p>';
             return;
         }
 
         bombas.forEach((bomba, index) => {
-            // El enlace ahora ejecuta abrirDetalleModelo en lugar de ir a un .html
             const html = `
-            <div class="bg-white border rounded-lg shadow-sm p-5 hover:shadow-md transition">
+            <div class="bg-white border rounded-lg shadow-sm p-5 hover:shadow-lg transition duration-300 flex flex-col">
                 <div class="border-b pb-3 mb-3">
-                    <h2 class="text-xl font-bold text-blue-700 cursor-pointer hover:underline" onclick="abrirDetalleModelo('${bomba['Modelo']}')" title="Ver ficha técnica">
-                        ${bomba['Modelo']} <i class="fas fa-search-plus text-sm text-gray-400"></i>
+                    <h2 class="text-xl font-bold text-blue-700 cursor-pointer hover:underline flex items-center gap-2" onclick="abrirDetalleModelo('${bomba['Modelo']}')" title="Ver Curva de Rendimiento">
+                        ${bomba['Modelo']} <i class="fas fa-image text-blue-500"></i>
                     </h2>
                     <p class="text-sm text-gray-600 mt-1">${bomba['Descripción']}</p>
                 </div>
                 
                 <div class="grid grid-cols-2 gap-2 text-sm mb-4">
-                    <div><b>Tipo:</b> ${bomba['Tipo']}</div>
-                    <div><b>Diámetro:</b> ${bomba['Diámetro']}"</div>
-                    <div><b>Turbina:</b> ${bomba['Material turbina']}</div>
-                    <div><b>Voltaje:</b> ${bomba['Voltaje DC']}V</div>
-                    <div><b>Potencia:</b> ${bomba['Potencia motor']}W</div>
-                    <div><b>Nominal:</b> ${bomba['Caudal nominal']} m³/h a ${bomba['Altura nominal']}m</div>
+                    <div><b class="text-gray-700">Tipo:</b> ${bomba['Tipo']}</div>
+                    <div><b class="text-gray-700">Diámetro:</b> ${bomba['Diámetro']}"</div>
+                    <div><b class="text-gray-700">Turbina:</b> ${bomba['Material turbina']}</div>
+                    <div><b class="text-gray-700">Voltaje:</b> ${bomba['Voltaje DC']}V</div>
+                    <div><b class="text-gray-700">Potencia:</b> ${bomba['Potencia motor']}W</div>
+                    <div><b class="text-gray-700">Nominal:</b> ${bomba['Caudal nominal']} m³/h a ${bomba['Altura nominal']}m</div>
                 </div>
 
                 <button onclick="toggleElement('tech-${index}')" class="w-full text-left bg-gray-50 hover:bg-gray-100 p-2 rounded border text-sm font-semibold text-gray-700 flex justify-between items-center mb-3">
-                    Rangos Ideales <i class="fas fa-chevron-down"></i>
+                    Rangos Ideales de Trabajo <i class="fas fa-chevron-down"></i>
                 </button>
                 <div id="tech-${index}" class="hidden bg-gray-50 p-3 rounded border text-sm grid grid-cols-2 gap-4 mb-3">
                     <div><span class="block font-bold text-blue-600 border-b mb-1">Caudal (m³/h)</span>Mín: ${bomba['Caudal Min. Ideal']} <br>Med: ${bomba['Caudal Med. Ideal']} <br>Máx: ${bomba['Caudal Max. Ideal']}</div>
                     <div><span class="block font-bold text-blue-600 border-b mb-1">Altura (mts)</span>Mín: ${bomba['Altura Min. Ideal']} <br>Med: ${bomba['Altura Med. Ideal']} <br>Máx: ${bomba['Altura Max. Ideal']}</div>
                 </div>
 
-                <div class="space-y-2 pt-2 border-t">
+                <div class="space-y-2 pt-2 border-t mt-auto">
                     <div class="flex justify-between items-center bg-green-50 p-2 rounded">
                         <span class="text-sm font-semibold text-green-800">Precio SGV</span>
                         <div class="flex items-center gap-3">
@@ -231,22 +218,18 @@
         });
     }
 
-    // --- LÓGICA DE LA VENTANA EMERGENTE (MODAL) --- //
+    // --- LÓGICA DE LA FOTO EN EL MODAL --- //
     async function abrirDetalleModelo(modelo) {
         const modal = document.getElementById('modal');
         const content = document.getElementById('modal-content');
         const title = document.getElementById('modal-title');
         
-        // Formateamos el título por si trae caracteres especiales
-        const modeloLimpio = modelo.trim();
-        
         modal.classList.remove('hidden');
-        title.innerText = `Detalles técnicos: ${modeloLimpio}`;
-        content.innerHTML = `<div class="text-center py-10"><i class="fas fa-spinner fa-spin fa-2x mb-2 text-blue-500"></i><p class="text-gray-600">Obteniendo datos de Google Sheets...</p></div>`;
+        title.innerText = `Curva: ${modelo}`;
+        content.innerHTML = `<div class="text-center py-10"><i class="fas fa-spinner fa-spin fa-2x mb-2 text-blue-500"></i><p class="text-gray-600">Buscando imagen en Google Drive...</p></div>`;
 
         try {
-            // Hacemos el pedido específico a tu API usando el nombre del modelo
-            const res = await fetch(`${API_URL}?modelo=${encodeURIComponent(modeloLimpio)}`);
+            const res = await fetch(`${API_URL}?modelo=${encodeURIComponent(modelo)}`);
             const json = await res.json();
 
             if (json.error) {
@@ -254,32 +237,16 @@
                 return;
             }
 
-            // Datos puros (matriz de filas y columnas de esa pestaña específica)
-            const datosHoja = json.datos;
-
-            // Construimos una tabla HTML básica para mostrar toda la información de la pestaña
-            let tableHtml = '<div class="overflow-x-auto"><table class="w-full text-sm text-left border-collapse">';
-            datosHoja.forEach((fila, index) => {
-                // Evitamos pintar filas completamente vacías
-                if (fila.some(celda => celda !== "")) {
-                    tableHtml += '<tr class="border-b hover:bg-gray-50">';
-                    fila.forEach(celda => {
-                        let valorCelda = (celda !== undefined && celda !== null) ? celda : '';
-                        if(index === 0) { // Tratamos la primera fila como encabezado
-                             tableHtml += `<th class="p-2 bg-gray-100 font-bold border-r">${valorCelda}</th>`;
-                        } else {
-                             tableHtml += `<td class="p-2 border-r whitespace-nowrap">${valorCelda}</td>`;
-                        }
-                    });
-                    tableHtml += '</tr>';
-                }
-            });
-            tableHtml += '</table></div>';
-
-            content.innerHTML = tableHtml;
+            if (json.imagen) {
+                // Si encontró la foto, la dibuja
+                content.innerHTML = `<img src="${json.imagen}" alt="Curva de ${modelo}" class="max-w-full max-h-[70vh] rounded shadow-md object-contain">`;
+            } else {
+                // Si no encontró ningún archivo con ese nombre en Drive
+                content.innerHTML = `<div class="text-center"><i class="fas fa-image-slash fa-3x text-gray-300 mb-3"></i><p class="text-gray-500 text-lg">No se encontró la imagen para el modelo <b>${modelo}</b> en la carpeta de Drive.</p></div>`;
+            }
 
         } catch (e) {
-            content.innerHTML = `<p class="text-red-500 text-center py-6">Error de conexión al cargar la pestaña del modelo.</p>`;
+            content.innerHTML = `<p class="text-red-500 text-center py-6">Error de conexión al buscar la imagen.</p>`;
         }
     }
 
